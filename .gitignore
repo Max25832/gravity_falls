@@ -99,3 +99,7 @@ models_and_scaler/*.rds
 # … but keep everything in used_in_paper (final models for the paper)
 !models_and_scaler/used_in_paper/
 !models_and_scaler/used_in_paper/*
+
+
+
+total_workflow_plus_attention.Rmd
