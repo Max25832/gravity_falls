@@ -1,8 +1,25 @@
 
+
+
 convert_week_to_date <- function(x) {
   # "2020 W01" → "2020-W01-1"
   x2 <- gsub(" ", "-", x)
   ISOweek2date(paste0(x2, "-1"))
+}
+
+
+encode_woy <- function(df) {
+  df<-df|>mutate(woy = week(time))
+  woy_sin <- sin(2 * pi * df$woy / 52)
+  woy_cos <- cos(2 * pi * df$woy / 52)
+  df1<-data.frame(woy_sin,woy_cos)
+  
+  df<-cbind(df,df1)
+  df<-df|>select(-woy)
+  
+  return(df)
+  
+  
 }
 
 
