@@ -896,7 +896,8 @@ an_plot<-function(reconstructed_data,
                   an_col = "an_score3",
                   obs_col = "swir22",
                   prefix = "pred_",
-                  th = 0.25
+                  th = 0.25,
+                  show_an=T
 ){
   
   pred= paste0(prefix,obs_col)
@@ -907,18 +908,17 @@ an_plot<-function(reconstructed_data,
     c(obs_col, an_col))
   
   
-  
-  reconstructed_data|> 
+  ts<-reconstructed_data|> 
     select(time, all_of(c(an_col, obs_col, pred)))|>
     pivot_longer(cols = all_of(c(an_col, obs_col)))|>
     mutate(!!pred:=ifelse(name== an_col, NA,.data[[pred]]),
            pred_fac = pred,
            name = factor(name, levels = c(obs_col, an_col))
-           )|>
+           )
+  p<-ts|>
     ggplot(aes(x = as_date(time))) +
     geom_line(aes(y = value, color = name)) +
     geom_line(aes(y = .data[[pred]], color = pred_fac)) +
-    
     geom_hline(
       data = data.frame(name = an_col, yint = th),
       aes(yintercept = yint, color= "Threshold"),
@@ -928,8 +928,8 @@ an_plot<-function(reconstructed_data,
  
     scale_color_manual(
       values = setNames(
-        c("red", "black", "orange", "purple"),
-        c(an_col, obs_col, pred, "Threshold")
+        c("red", "black", "orange", "purple", "blue"),
+        c(an_col, obs_col, pred, "Threshold", "anomaly")
       )
     )+
     
@@ -937,7 +937,90 @@ an_plot<-function(reconstructed_data,
     facet_wrap(~name, ncol=1,
                labeller = as_labeller(facet_labs),
                scales= "free_y")
+  
+  if (isTRUE(show_an)) {
+    p <- p +
+      geom_point(
+        data = ts |> 
+          filter(name == an_col, value > th, lead(value) > th),
+        aes(x = as_date(time), y = value, color = "anomaly")
+      )
+  }
+  
+  return(p)
 }
+
+an_plot2<-function(reconstructed_data,
+                   an_col = "an_score3",
+                   obs_col = "swir22",
+                   prefix = "pred_",
+                   th = 0.25,
+                   show_an=T
+){
+  
+  pred= paste0(prefix,obs_col)
+  
+  
+  reconstruction_plot<- reconstructed_data|>
+    select( all_of(c("time",obs_col, pred, an_col)))|>
+    mutate(title="Reconstruction")|>
+    ggplot(aes(x = as_date(time))) +
+    geom_line(aes(y = .data[[obs_col]], color = obs_col)) +
+    geom_line(aes(y = .data[[pred]], color = pred)) +
+    
+    scale_color_manual(
+      values = setNames(
+        c("blue", "black", "orange", "purple", "red"),
+        c(an_col, obs_col, pred, "Threshold", "anomaly")
+      )
+    )+
+    
+    theme_bw()+
+    facet_wrap(~title, ncol=1,
+               #labeller = as_labeller(facet_labs),
+               scales= "free_y")
+  
+  
+  score_plot<- reconstructed_data|>
+    select( all_of(c("time",an_col)))|>
+    mutate(title="Anomaly Score")|>
+    ggplot(aes(x = as_date(time))) +
+    geom_point(aes( y=.data[[an_col]],color=an_col), size= 0.2) + 
+    geom_segment( aes(x=as_date(time), xend=as_date(time), y=0, yend=.data[[an_col]],color=an_col))+
+    geom_hline(
+      data = data.frame(name = an_col, yint = th),
+      aes(yintercept = yint, color= "Threshold"),
+      linetype = "dashed"
+    ) +
+    
+    
+    scale_color_manual(
+      values = setNames(
+        c("blue", "black", "orange", "purple", "red"),
+        c(an_col, obs_col, pred, "Threshold", "anomaly")
+      )
+    )+
+    
+    theme_bw()+
+    facet_wrap(~title, ncol=1,
+               #             labeller = as_labeller(facet_labs),
+               scales= "free_y")
+  
+  
+  if (isTRUE(show_an)) {
+    score_plot <- score_plot +
+      geom_point(
+        data = reconstructed_data |> 
+          filter(.data[[an_col]] > th, lead(.data[[an_col]]) > th),
+        aes(x = as_date(time), y = .data[[an_col]], color = "anomaly")
+      )
+  }
+  
+  p<-ggarrange(reconstruction_plot,score_plot, ncol = 1, common.legend =T, legend = "bottom")
+  
+  return(p)
+}
+
 
 
 
@@ -992,7 +1075,8 @@ plot_index_pdscore <- function(ts,
                                defoliation_column = "defoliation",
                                an_column = "an_first",
                                th = -0.03,
-                               AN_prediction = "an_first") {
+                               AN_prediction = "an_first", 
+                               legend= T) {
   index <- match.arg(index)
   
   ## 1) Defoliation-Index bestimmen ---------------------------------------
@@ -1093,13 +1177,80 @@ plot_index_pdscore <- function(ts,
     )
   
   ## 6) Kombinieren --------------------------------------------------------
+  if(isFALSE(legend)){
+    tcw_s <-tcw_s+theme(legend.position = "none")
+    pdscore <-pdscore+theme(legend.position = "none")
+  }
+  
   ggpubr::ggarrange(tcw_s, pdscore, nrow = 2, align = "v")
+  
 }
+
+
+preparation_for_boxplot<-function(input_df,
+                                  score_column= "pd_score_fx",
+                                  remove0= TRUE,
+                                  model_name = "LSTM_AE_ATTENTION"){
+  
+  input_df<-input_df|>select(all_of(score_column), coords)
+  if(isTRUE(remove0)){
+    input_df<-input_df|>filter(.data[[score_column]]!=0)  
+  }
+  input_df$model<- model_name
+  return(input_df)
+}
+
 
 
 ################################################################################
 #                                 Evaluation Functions
 ################################################################################
+
+#' This function calculates the PD-Score based on an anomaly dataframe and a validation dataframe  
+#'
+#' The validation dataframe needs to have a coords column and a time column and defoliation - the defoliation column needs to equal 1 at the time of defoliation- 
+#' it can also have a time, ndvi or other values 
+#'
+#'
+gf_score_function<- function(validation_df,
+                             reconstructed_data,
+                             threshold = 0.25,
+                             rec_err_col = "an_score3",
+                             an_col = "an",
+                             defoliation_column = "defoliation",
+                             an_column = "an_first"){
+  
+  
+  validation_df<-validation_df|>
+    mutate(time= yearweek(as.Date(time)))
+  
+  
+  # Score the reconstructed Data 
+  reconstructed_data_scored<-reconstructed_data|>
+    group_by(coords)|>
+    group_modify(~ an_function(.x, th= threshold, rec_err = rec_err_col)) |> 
+    ungroup()|>
+    an_groups_function(an_col = an_col)|>
+    as.data.frame()
+  
+  
+  #----  Join   ----
+  
+  reconstructed_data_scored_selected<-reconstructed_data_scored|> mutate(time= yearweek(time))
+  pd_df<-left_join(reconstructed_data_scored_selected, validation_df, by = c("time", "coords"))
+  pd_df<-pd_df|> mutate(defoliation = ifelse(is.na(defoliation), 0, defoliation))
+  
+  #----  Score  ----
+  
+  pd_df<-pd_df|>group_by(coords)|>
+    group_modify(~ pd_score_add_score_column(.x, defoliation_column = defoliation_column, an_column = an_column)) |> 
+    ungroup()
+  
+  return(pd_df)
+  
+}
+
+
 
 
 ################################################################################
@@ -1224,7 +1375,7 @@ an_function<-function(ts, th = 0.2, rec_err = "rec_err", steps = 3) {
 
 
 
-# THis function gropus consecutive aomaly time steps into one Anomaly. Furhtermore the first time step for each Anomaly Group is labeled as an_first
+#' THis function gropus consecutive aomaly time steps into one Anomaly. Furhtermore the first time step for each Anomaly Group is labeled as an_first
 an_groups_function <- function(df, group_col = "coords", an_col = "an") {
   setDT(df)
   

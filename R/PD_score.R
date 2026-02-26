@@ -1,8 +1,15 @@
-#TODO val data auf raw data erstellen. 
-#TODO Join!-  Lefjoin? 
-#TODO Score
 
-#TODO val data auf raw data erstellen. 
+reconstructed_data<-read_csv("data/reconstructed_data/reconstructed_data_test_model.csv")
+reconstructed_data2<-read_csv("data/reconstructed_data/reconstructed_data_paper_model.csv")
+# if the time format of data is saved as charracter (yyyy-Www) e.g. "2020 W01" this function should be applied otherwize applying furhter functions can take very long   
+#reconstructed_data2$time<- convert_week_to_date(reconstructed_data2$time)
+
+reconstructed_data3<-read_csv("data/reconstructed_data/reconstructed_data_test_att_wenc30.csv")
+
+
+# if the time format of data is saved as charracter (yyyy-Www) e.g. "2020 W01" this function should be applied otherwize applying furhter functions can take very long   
+# reconstructed_data$time<- convert_week_to_date(reconstructed_data$time)
+
 
 ################################################################################
 #                     Validation Dataframe 
@@ -15,47 +22,139 @@ raw_test_data2<-raw_test_data|>
   group_modify(~ defoliation_indices(.x, weekly =T)) |> # calculat the defoliation dates for each coordinate time series 
   ungroup() 
 
-
 validation_df<-raw_test_data2|> 
   #filter(defoliation==1)|>
   select(coords, time, defoliation, tcw, ndvi)
 
 
+# --- Cclp ---
+
+val_cclp<-read_csv("data/testdata/smallSampleAreas_validation.csv")|>
+  select(coords, date_vals)|>
+  rename(time=date_vals)|>
+  na.omit()|>
+  mutate(  defoliation=1)
+
+
+
+
+
 ################################################################################
-#                   Calculate Detected Anomalies from Model
+#                 Validation With 2 different validation DFs
 ################################################################################
 
-reconstructed_data<-read_csv("data/reconstructed_data/reconstructed_data_test_model.csv")
 
-# if the time format of data is saved as charracter (yyyy-Www) e.g. "2020 W01" this function should be applied otherwize applying furhter functions can take very long   
-reconstructed_data$time<- convert_week_to_date(reconstructed_data$time)
+# ----- with Canopy Cover Loss Product (CCLP) -----
 
-
-reconstructed_data_scored<-reconstructed_data|>
-  group_by(coords)|>
-  group_modify(~ an_function(.x, th= 0.25, rec_err = "an_score3")) |> 
-  ungroup()|>
-  an_groups_function(an_col = "an")|>
-  as.data.frame()
+scored_df_cclp<-gf_score_function(validation_df = val_cclp,
+                                  reconstructed_data = reconstructed_data,
+                                  threshold = 0.25,
+                                  rec_err_col = "an_score3",
+                                  an_col = "an",
+                                  defoliation_column = "defoliation",
+                                  an_column = "an_first")
 
 
-
-#----  Join   ----
-validation_df<-validation_df|> mutate(time= yearweek(time))
-#reconstructed_data_scored_selected<-reconstructed_data_scored_selected|> mutate(time= yearweek(time))
-reconstructed_data_scored_selected<-reconstructed_data_scored|> mutate(time= yearweek(time))
-
-pd_df<-left_join(reconstructed_data_scored_selected, validation_df, by = c("time", "coords"))
-
-pd_df<-pd_df|> mutate(defoliation = ifelse(is.na(defoliation), 0, defoliation))
+scored_df_att_cclp<-gf_score_function(validation_df = val_cclp,
+                                      reconstructed_data = reconstructed_data3,
+                                      threshold = 0.25,
+                                      rec_err_col = "an_score3",
+                                      an_col = "an",
+                                      defoliation_column = "defoliation",
+                                      an_column = "an_first")
 
 
-#----  Score  ----
 
-pd_df<-pd_df|>group_by(coords)|>
-  group_modify(~ pd_score_add_score_column(.x, defoliation_column = "defoliation",an_column = "an_first")) |> 
-  ungroup()
-  
+
+scored_df<-gf_score_function(validation_df = validation_df,
+                             reconstructed_data = reconstructed_data,
+                             threshold = 0.25,
+                             rec_err_col = "an_score3",
+                             an_col = "an",
+                             defoliation_column = "defoliation",
+                             an_column = "an_first")
+
+
+scored_df_att<-gf_score_function(validation_df = validation_df,
+                                 reconstructed_data = reconstructed_data3,
+                                 threshold = 0.25,
+                                 rec_err_col = "an_score3",
+                                 an_col = "an",
+                                 defoliation_column = "defoliation",
+                                 an_column = "an_first")
+
+
+
+
+scored_df_paper<-gf_score_function(validation_df = validation_df,
+                             reconstructed_data = reconstructed_data2,
+                             threshold = 0.25,
+                             rec_err_col = "an_score3",
+                             an_col = "an",
+                             defoliation_column = "defoliation",
+                             an_column = "an_first")
+
+
+scored_df_paper_cclp<-gf_score_function(validation_df = val_cclp,
+                                 reconstructed_data = reconstructed_data2,
+                                 threshold = 0.25,
+                                 rec_err_col = "an_score3",
+                                 an_col = "an",
+                                 defoliation_column = "defoliation",
+                                 an_column = "an_first")
+
+
+m1<-scored_df|>
+  na.omit()|>
+  preparation_for_boxplot(model_name = "test")
+m2<-scored_df_att|>
+  na.omit()|>
+  preparation_for_boxplot(model_name = "att_2y")
+
+m3<-scored_df_cclp|>
+  na.omit()|>
+  preparation_for_boxplot(model_name = "test_cclp_scored")
+
+m4<-scored_df_att_cclp|>
+  na.omit()|>
+  preparation_for_boxplot(model_name = "att_2y_cclp_scored")
+
+
+m5<-scored_df_paper|>
+  na.omit()|>
+  preparation_for_boxplot(model_name = "paper")
+
+m6<-scored_df_paper_cclp|>
+  na.omit()|>
+  preparation_for_boxplot(model_name = "paper_cclp")
+
+
+m_all<-rbind(m1,m2, m3, m4,m5,m6)
+
+
+
+
+m_all|>
+  filter(.data[[score_column]]!=0.5)|>
+  ggplot() +
+  aes(x = model,
+      y = .data[[score_column]],
+      fill= model) +
+  geom_flat_violin( position = position_nudge(x = .2), alpha = 0.5) +
+  geom_point(aes(color = model), size= 0.3,
+             position = position_jitter(w = .15)) +
+  geom_boxplot(width = .25, alpha= 0.6) + # New code added here
+  #  coord_flip() +
+  # scale_fill_manual(values = c("LSTM AE" ="#568be8", "BFAST" =  "#ed88ab")) +
+  # scale_color_manual(values = c("LSTM AE" ="#568be8", "BFAST" =  "#ed88ab")) +
+  # scale_fill_manual(values = c("LSTM AE" ="#336a97", "BFAST" =  "#e43535")) +
+  # scale_color_manual(values = c("LSTM AE" ="#336a97", "BFAST" =  "#e43535")) +
+  theme_bw()+ 
+  labs(x="Models", y = "Pre-Defoliation Score")+
+  # facet_grid2(~method, scales = "free_x", space = "fixed" ) +
+  facet_grid2(~model, scales = "free_x", space = "fixed" ) +
+  theme(legend.position = "none")
+
 
 
 ################################################################################
@@ -67,34 +166,37 @@ ts <- pd_df|>filter(coords== unique(pd_df$coords)[1500]) # disturbed
 
 
 ts|>plot_index_pdscore( 
-defoliation_column= "defoliation",
-an_column = "an_first",
-index="tcw",
-th = -0.03,
-AN_prediction = "an_first"
-)
+  defoliation_column= "defoliation",
+  an_column = "an_first",
+  index="tcw",
+  th = -0.03,
+  AN_prediction = "an_first",
+  legend = F)
 
 
 ts|>an_plot()
 
 
+bad_coords<- scored_df_paper|>group_by(coords)|> filter(any(pd_score_fx== -1))|>pull(coords)
+bad_c<-unique(bad_coords)[150]
+
+
+scored_df_paper|>filter(coords==bad_c )|>
+  plot_index_pdscore( 
+    defoliation_column= "defoliation",
+    an_column = "an_first",
+    index="ndvi",
+    th = 0.5,
+    AN_prediction = "an_first",
+    legend = F)
+
+  
   
 
-pd_df|>
-  filter(pd_score_fx!=0)|>
-  ggplot()+
-  #  geom_density(aes(x = pd_score_fx, col="pd_score_fx", fill= "pd_score_fx"),alpha=0.5)+
-  geom_bar(aes(x = pd_score_fx,col="pd_score_fx", fill= "pd_score_fx"),linetype = "dotted")+
-  #  geom_hline(aes(yintercept = mean(pd_score_fx)),size=1.5, col="red", show.legend = F)
-  theme_bw()
 
 
-pd_df|>filter(coords== pd_df$coords[1500])|>
-  ggplot(aes(x=as_date(time)))+
-  geom_line(aes(y= an_score3, colour = "anscore"))+
-  geom_line(aes(y= pd_score_fx, colour = "score"))+
-  geom_point(data= (pd_df|>filter(coords== pd_df$coords[1])|>filter(an_first==1)), aes(y= an_score3, colour = "first detected AN"))
+scored_df_paper|>filter(coords==bad_c )|>an_plot(an_col = "an_score7")
 
 
 
-
+scored_df_paper|>filter(coords%in%bad_c )|>get_extent()

@@ -5,7 +5,8 @@
 #-------------------------------------------------------------------------------
 #                                    Load Data
 #-------------------------------------------------------------------------------
-data4inference<-read.csv("data/testdata/small_test_set.csv")
+data4inference<-read.csv("data/testdata/small_test_set2.csv")
+#data4inference<-read.csv("data/testdata/small_test_set.csv")
 data4inference$time<-as.Date(data4inference$time)
 
 # our models don't take b8a as input  
@@ -20,9 +21,9 @@ n_coords<-length(unique(data4inference$coords))
 #-------------------------------------------------------------------------------
 
 # --- TensorFlow Model used in Paper ---
-# scaler_sgma<-readRDS("models_and_scaler/used_in_paper/scaler52_sgma.rds")
-# model_path="models_and_scaler/used_in_paper/sae52_sgma_V1_checkpoint.keras"
-# sgma52_model <- keras3::load_model(model_path)
+ # scaler_sgma<-readRDS("models_and_scaler/used_in_paper/scaler52_sgma.rds")
+ # model_path="models_and_scaler/used_in_paper/ae52_sgma_V1_checkpoint.keras"
+ # sgma52_model <- keras3::load_model(model_path)
 
 # --- Test Model ---
 test_scaler<-readRDS("models_and_scaler/52sgma_scaler_test.RDS")
@@ -35,6 +36,8 @@ test_model <- keras3::load_model(model_path)
 #-------------------------------------------------------------------------------
 # --- TensorFlow Model ---
 
+# used_scaler= scaler_sgma
+# used_model = sgma52_model
 used_scaler= test_scaler
 used_model = test_model
 
@@ -64,6 +67,7 @@ data4inference.imputed <- gf_impute_df_sgma_new(
 # t2 - t1
 
 #data4inference.imputed<-read_csv("data/testdata/small_test_set_imputed.csv")
+data4inference.imputed<-read_csv("data/testdata/small_test_set_imputed2.csv")
 
 ###
 t3<-Sys.time()
@@ -76,31 +80,33 @@ t4-t3
 
 
 
-reconstructed_data$an_score1 <- an_score_column(reconstructed_data, c("nir", "red", "rededge1", "rededge2", "rededge3"), preix= "pred_") # gut 
-reconstructed_data$an_score2 <- an_score_column(reconstructed_data, c("nir", "red", "rededge1", "rededge2", "rededge3", "swir16", "swir22"), preix= "pred_")
-reconstructed_data$an_score3 <- an_score_column(reconstructed_data, c("nir", "red", "swir16", "swir22"), preix= "pred_")
-reconstructed_data$an_score4 <- an_score_column(reconstructed_data, c("nir", "red", "green", "blue", "swir16", "swir22"), preix= "pred_")
-reconstructed_data$an_score5 <- an_score_column(reconstructed_data, c("green", "red", "blue"), preix= "pred_")                  
-reconstructed_data$an_score6 <- an_score_column(reconstructed_data, c("rededge1", "rededge2", "rededge3"), preix= "pred_")  # bad
-reconstructed_data$an_score_all <- an_score_column(reconstructed_data, names[2:length(names)], preix= "pred_")
+reconstructed_data$an_score1 <- an_score_column(reconstructed_data, c("nir", "red", "rededge1", "rededge2", "rededge3"), prefix= "pred_") # gut 
+reconstructed_data$an_score2 <- an_score_column(reconstructed_data, c("nir", "red", "rededge1", "rededge2", "rededge3", "swir16", "swir22"), prefix= "pred_")
+reconstructed_data$an_score3 <- an_score_column(reconstructed_data, c("nir", "red", "swir16", "swir22"), prefix= "pred_")
+reconstructed_data$an_score4 <- an_score_column(reconstructed_data, c("nir", "red", "green", "blue", "swir16", "swir22"), prefix= "pred_")
+reconstructed_data$an_score5 <- an_score_column(reconstructed_data, c("green", "red", "blue"), prefix= "pred_")                  
+reconstructed_data$an_score6 <- an_score_column(reconstructed_data, c("rededge1", "rededge2", "rededge3"), prefix= "pred_")  # bad
+reconstructed_data$an_score7 <- an_score_column(reconstructed_data, c("swir16", "swir22", "rededge1"), prefix= "pred_")
+reconstructed_data$an_score_all <- an_score_column(reconstructed_data, names[2:length(names)], prefix= "pred_")
 
 
 
-#reconstructed_data|>write_csv("data/reconstructed_data/reconstructed_data_test_model.csv")
+#reconstructed_data|>mutate(time=as.Date(time))|>write_csv("data/reconstructed_data/reconstructed_data2_paper_model.csv")
 
 
 # Plot a time series 
 
 reconstructed_data|>
   filter(year(time)<2023)|>
- # filter(coords == unique(data4inference.imputed$coords)[1500])|>    # Disturbed
+#  filter(coords == unique(data4inference.imputed$coords)[1570])|>    # Disturbed
 #  filter(coords == unique(data4inference.imputed$coords)[2500])|>    # Disturbed
   filter(coords == unique(data4inference.imputed$coords)[3000])|>     # Healthy 
   an_plot(
-    an_col = "an_score3",
+    an_col = "an_score7",
     obs_col = "swir22",
     prefix = "pred_", 
-    th = 0.25)
+    th = 0.25,
+    show_an = T)
 
 
 
@@ -143,3 +149,6 @@ tiff52<-reconstructed_data|>
 
 
 tiff52|>plot()
+
+
+

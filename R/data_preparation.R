@@ -1,4 +1,5 @@
-data_path <- "data/traindata/raw_GEE_data/"
+#data_path <- "data/traindata/raw_GEE_data/"
+data_path <- "data/testdata/raw_GEE_data/"
 
 
 files <- list.files(path=data_path, pattern="*.csv", all.files=T, full.names=T)
@@ -44,6 +45,9 @@ csv2 <- csv2 |>
   )
 
 
+csv2 <- csv2 |>
+  mutate(QA60 = if ("QA60" %in% names(csv2)) QA60 else 0)
+
 # filtering the data based on QA60 
 csv2<-csv2|> filter(QA60 ==0)
 
@@ -51,7 +55,7 @@ csv2<-csv2|> filter(QA60 ==0)
 csv2<-csv2|> select(-.geo)
 
 
-bands<-c("coords", "time", "nir", "B8A", "red", "rededge1", "rededge2", "rededge3", "blue","green", "swir16", "swir22")
+bands <- c("coords","time","blue", "green", "red", "rededge1", "rededge2", "rededge3",  "nir", "B8A", "swir16", "swir22")
 
 # Cleaning the Test Data 
 
@@ -60,20 +64,22 @@ csv3<-csv2|> multipoint_data_cleaner() #|> indices() we dont need to calculate t
 
 
 # Saving the Data
-write_csv(csv3, file = "data/traindata/train_data.csv")
+#write_csv(csv3, file = "data/traindata/train_data.csv")
+write_csv(csv3, file = "data/testdata/small_test_set2.csv")
 
 
 
 
 # Plot to show whats cleaned 
-samplecord <- unique(csv2$coords)[100]
-
-# plotting 
-ggplot()+
-  geom_line(data= (csv2|> filter(coords== samplecord)), aes(x=as_date(time), y = swir22), col= "darkgreen")+
-  geom_line(data= (csv3|> filter(coords== samplecord)), aes(x=as_date(time), y = swir22), col= "green")+
-  geom_point(data= (csv2|> filter(coords== samplecord)), aes(x=as_date(time), y = swir22), col= "darkgreen")+
-  geom_point(data= (csv3|> filter(coords== samplecord)), aes(x=as_date(time), y = swir22), col= "green")+
-  theme_bw()
-
-
+# samplecord <- unique(csv2$coords)[100]
+# 
+# # plotting 
+# ggplot()+
+#   geom_line(data= (csv2|> filter(coords== samplecord)), aes(x=as_date(time), y = swir22), col= "darkgreen")+
+#   geom_point(data= (csv2|> filter(coords== samplecord)), aes(x=as_date(time), y = swir22), col= "darkgreen")+
+#   geom_line(data= (csv3|> filter(coords== samplecord)), aes(x=as_date(time), y = swir22), col= "green")+
+#   geom_point(data= (csv3|> filter(coords== samplecord)), aes(x=as_date(time), y = swir22), col= "green")+
+#   theme_bw()
+# 
+# 
+# 

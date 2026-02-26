@@ -4,6 +4,7 @@ py_config()
 
 
 
+library(PupillometryR)
 
 library(scales)
 library(cowplot)
@@ -31,21 +32,21 @@ library(tidyverse)
 library(terra)
 library(tsibble)
 library(zoo)
-
 library(tidyselect)
 library(R6)
-
+library(progress)
+library(data.table)
+library(abind)  # für Array-Stacking
+library(ISOweek)
 library(strucchange)
+
+
 library(caret)
 library(coro)
 library(torch)
 library(glue)
 library(mlflow)
-library(progress)
-library(data.table)
-library(abind)  # für Array-Stacking
 library(keras3)
-library(ISOweek)
 
 
 
